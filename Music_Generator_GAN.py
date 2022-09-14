@@ -57,7 +57,7 @@ discriminator.summary()
 
 #### preprocess data ####
 train_data = np.load('preprocess_data.npy')
-train_data = train_data[:1000]
+train_data = train_data[:int(len(train_data)/4)]
 # rescale 0 to 1
 train_data = train_data.reshape(-1,256,1)
 #########################
@@ -123,7 +123,7 @@ def train(dataset,epochs):
             if total_step%100 == 0:
                 clear_output(wait=True)
                 print(f"G_AVE_loss: {G_loss/100}")
-                print(f"D_AVE_loss: {G_loss/100}")
+                print(f"D_AVE_loss: {D_loss/100}")
                 gloss_list.append(G_loss/100)
                 dloss_list.append(D_loss/100)
                 G_loss = 0

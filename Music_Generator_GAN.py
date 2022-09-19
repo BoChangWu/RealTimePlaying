@@ -57,15 +57,17 @@ discriminator.summary()
 
 #### preprocess data ####
 train_data = np.load('preprocess_data.npy')
-train_data = train_data[:int(len(train_data)/4)]
+train_data = train_data[:2000]
 # rescale 0 to 1
 train_data = train_data.reshape(-1,256,1)
 #########################
 Batch = 1
 
 #### Optimizer ####
-generator_optimizer = Adam(1e-4)
-discriminator_optimizer = Adam(1e-4)
+generator_optimizer = Adam(learning_rate=2e-3,beta_1=0.5)
+discriminator_optimizer = Adam(learning_rate=4e-9,beta_1=0.5)
+# generator_optimizer = tf.keras.optimizers.SGD(learning_rate=0.001)
+# discriminator_optimizer = tf.keras.optimizers.SGD(learning_rate=0.001)
 ###################
 
 #### Loss function ####
@@ -85,8 +87,10 @@ def discriminator_loss(real_output,fake_output):
 #### Train ####
 @tf.function
 def train_step(music):
-    noise = tf.random.normal([Batch,Time,1])
-
+    tf.random.set_seed(5)
+    noise = tf.random.normal(shape=[Batch,Time,1],dtype=tf.float32,seed=3)
+    # noise = tf.random.normal([Batch,Time,1])
+    
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
         generated_music = generator(noise,training=True)
         real_output = discriminator(music,training=True)
@@ -99,7 +103,7 @@ def train_step(music):
     gradients_of_discriminator = disc_tape.gradient(disc_loss,discriminator.trainable_variables)
     generator_optimizer.apply_gradients(zip(gradients_of_generator,generator.trainable_variables))
     discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator,discriminator.trainable_variables))
-
+    
     return gen_loss,disc_loss
 
 gloss_list=[]
@@ -135,7 +139,8 @@ def train(dataset,epochs):
 #### Main ####
 train_dataset = tf.data.Dataset.from_tensor_slices(train_data).batch(Batch,drop_remainder=True)
 
-train(train_dataset,1)
+with tf.device('/device:GPU:0'):
+    train(train_dataset,1)
 
 np.save('0912_MTgan_gloss',np.array(gloss_list))
 np.save('0912_MTgan_dloss',np.array(dloss_list))
@@ -143,7 +148,8 @@ np.save('0912_MTgan_dloss',np.array(dloss_list))
 #############
 
 #### Make Midi ####
-noise = tf.random.normal([Batch,Time,1])
+tf.random.set_seed(5)
+noise = tf.random.normal(shape=[Batch,Time,1],dtype=tf.float32,seed=3)
 predict = generator.predict(noise)
 predict = predict*128
 print(predict)

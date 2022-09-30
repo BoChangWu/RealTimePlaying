@@ -251,3 +251,7 @@ def TransformerDiscriminator(hparams, input_shape):
     h = Dense((1))(h)
     h = Dropout(0.1)(h)
     return Model(inputs,h)
+
+
+
+

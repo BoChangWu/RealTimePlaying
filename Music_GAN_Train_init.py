@@ -1,4 +1,5 @@
 import time
+import os
 import random
 from IPython.display import clear_output
 from mido import MidiFile, MidiTrack, Message
@@ -8,39 +9,14 @@ import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import *
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential, Model
+
+
 from Transformer import TransformerGenerator,TransformerDiscriminator
-
+from .Optimize import generator_optimizer, discriminator_optimizer,generator_loss, discriminator_loss
+from .midi_edit import Midi_Encode
 #### Params ####
-IntervalDim = 100
-VelocityDim = 32
-VelocityOffset = IntervalDim
-
-NoteOnDim = NoteOffDim = 128
-NoteOnOffset = IntervalDim + VelocityDim
-NoteOffOffset = IntervalDim + VelocityDim + NoteOnDim
-
-CCDim = 2
-CCOffset = IntervalDim + VelocityDim + NoteOnDim + NoteOffDim
-EventDim = IntervalDim + VelocityDim + NoteOnDim + NoteOffDim + CCDim # 390
-
-Time = 256
-EmbeddingDim = 512
-HeadDim = 16
-Heads = 16
-ContextDim = HeadDim * Heads # 512
-Layers = 8
-
-def default_hparams():
-    return {
-        'EventDim': EventDim,
-        "ContextDim": ContextDim,
-        'EmbeddingDim': EmbeddingDim,
-        'Heads': Heads,
-        'Layers': Layers,
-        'Time': Time
-    }
+from .params_setting import *
 
 hparams = default_hparams()
 
@@ -57,38 +33,16 @@ discriminator.summary()
 
 #### preprocess data ####
 train_data = np.load('preprocess_data.npy')
-train_data = train_data[:2000]
+# train_data = train_data[:60000]
 # rescale 0 to 1
 train_data = train_data.reshape(-1,256,1)
 #########################
-Batch = 1
-
-#### Optimizer ####
-generator_optimizer = Adam(learning_rate=2e-3,beta_1=0.5)
-discriminator_optimizer = Adam(learning_rate=4e-9,beta_1=0.5)
-# generator_optimizer = tf.keras.optimizers.SGD(learning_rate=0.001)
-# discriminator_optimizer = tf.keras.optimizers.SGD(learning_rate=0.001)
-###################
-
-#### Loss function ####
-cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
-def generator_loss(fake_output):
-    return cross_entropy(tf.ones_like(fake_output),fake_output)
-
-def discriminator_loss(real_output,fake_output):
-    real_loss = cross_entropy(tf.ones_like(real_output),real_output)
-    fake_loss = cross_entropy(tf.zeros_like(fake_output),fake_output)
-    total_loss = real_loss + fake_loss
-
-    return total_loss
-#######################
 
 #### Train ####
 @tf.function
 def train_step(music):
     tf.random.set_seed(5)
-    noise = tf.random.normal(shape=[Batch,Time,1],dtype=tf.float32,seed=3)
+    noise = tf.random.normal(shape=[Batch,Time,1],dtype=tf.float32,seed=12)
     # noise = tf.random.normal([Batch,Time,1])
     
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
@@ -134,48 +88,37 @@ def train(dataset,epochs):
                 D_loss = 0
 
         print(f"Time for epoch {epoch + 1} is {time.time()-start} sec\n")
+    generator.save('./g_model')
+    discriminator.save('./d_model')
 ###############
+
 
 #### Main ####
 train_dataset = tf.data.Dataset.from_tensor_slices(train_data).batch(Batch,drop_remainder=True)
 
 with tf.device('/device:GPU:0'):
     train(train_dataset,1)
+# gckpt.save(file_prefix=g_prefix)
+# dckpt.save(file_prefix=d_prefix)
 
 np.save('0912_MTgan_gloss',np.array(gloss_list))
 np.save('0912_MTgan_dloss',np.array(dloss_list))
 
 #############
 
-#### Make Midi ####
+#### predict ####
 tf.random.set_seed(5)
-noise = tf.random.normal(shape=[Batch,Time,1],dtype=tf.float32,seed=3)
+noise = tf.random.normal(shape=[Batch,Time,1],dtype=tf.float32,seed=6)
 predict = generator.predict(noise)
 predict = predict*128
 print(predict)
+#################
 
-midler = MidiFile()
-track = MidiTrack()
+#### Generate Midifile ####
+midi_encode = Midi_Encode()
 
-midler.tracks.append(track)
-track.append(Message('program_change',program=2,time=0))
-
-for x in range(256):
-    on_interval = random.randint(50,127)
-    off_interval = random.randint(0,127)
-    change_interval = random.randint(0,127)
-    change_value = random.randint(0,127)
-    isControl = random.randint(0,1)
-    
-    track.append(Message('note_on', channel=1, note=int(predict[0][x][0]), velocity=64, time=on_interval))
-
-    if isControl:
-        track.append(Message('control_change', channel=1, control=64, value=change_value, time= change_interval))
-
-    track.append(Message('note_off', channel=1, note=int(predict[0][x][0]), velocity=64, time=off_interval))
-
-midler.save('MT_song.mid')
-###################
+midi_encode.make_file(params=predict,name='Song#1.mid')
+###########################
 
 #### show graph ####
 g= np.load('0912_MTgan_gloss.npy')

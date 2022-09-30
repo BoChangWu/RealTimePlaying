@@ -14,9 +14,9 @@ from tensorflow.keras.models import Sequential, Model
 
 from Transformer import TransformerGenerator,TransformerDiscriminator
 from .Optimize import generator_optimizer, discriminator_optimizer,generator_loss, discriminator_loss
-from .midi_edit import Midi_Encode
+from .Midi_Edit import Midi_Encode
 #### Params ####
-from .params_setting import *
+from .Pparams_setting import *
 
 hparams = default_hparams()
 

@@ -8,8 +8,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.keras.optimizers import Adam
 from Transformer import TransformerGenerator,TransformerDiscriminator
-from .params_setting import *
-from .midi_edit import Midi_Encode
+from .Pparams_setting import *
+from .Midi_Edit import Midi_Encode
 #### Params ####
 
 hparams = default_hparams()
